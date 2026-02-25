@@ -69,6 +69,8 @@
     "as923_3",
     "as923_4",
     "au915_0",
+    "au915_1",
+    "au915_full",
     "cn470_10",
     "cn779",
     "eu433",
@@ -97,9 +99,27 @@
   secret="you-must-replace-this"
 
 
+# CA para firmar certificados de gateway y application (Get Certificate en la UI).
+# Generar con: .\scripts\generate-ca.ps1  (o make generate-ca)
+[gateway]
+  ca_cert="/etc/chirpstack/ca.pem"
+  ca_key="/etc/chirpstack/ca-key.pem"
+  client_cert_lifetime="8760h"
+  allow_unknown_gateways=true
+
 [integration]
   enabled=["mqtt"]
 
   [integration.mqtt]
+    # Broker: por defecto el Mosquitto del compose. Para externo: tcp://host:1883 o ssl://host:8883
     server="tcp://$MQTT_BROKER_HOST:1883/"
     json=true
+    # Opcional: si tu broker exige usuario/contraseña
+    # username="$MQTT_USERNAME"
+    # password="$MQTT_PASSWORD"
+
+  # CA para certificados de la integración MQTT por application (Get Certificate).
+  [integration.mqtt.client]
+    ca_cert="/etc/chirpstack/ca.pem"
+    ca_key="/etc/chirpstack/ca-key.pem"
+    client_cert_lifetime="8760h"

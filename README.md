@@ -64,6 +64,45 @@ PostgreSQL and Redis data is persisted in Docker volumes, see the `docker-compos
 Before using this `docker-compose.yml` file, make sure you have [Docker](https://www.docker.com/community-edition)
 installed.
 
+## Certificados CA (gateway y application)
+
+Para poder usar **Get Certificate** en la UI (certificados de gateway y de integración MQTT por application), hace falta una CA. **Un solo comando** deja todo listo:
+
+**Windows (PowerShell):**
+```powershell
+.\scripts\setup-certificates-complete.ps1
+```
+
+**Linux / macOS:**
+```bash
+make setup-certificates-complete
+```
+o `sh scripts/setup-certificates-complete.sh`
+
+El script genera la CA (`ca.pem`, `ca-key.pem`) en `configuration/chirpstack/` si no existe y reinicia ChirpStack. Requiere Docker.
+
+*Alternativa manual:* `.\scripts\generate-ca.ps1` (o `make generate-ca`) y luego `docker compose restart chirpstack`.
+
+## Conectar a MQTT
+
+ChirpStack publica eventos de dispositivos (uplinks, join, etc.) al broker MQTT (Mosquitto en el puerto **1883**). Para conectarte desde tu aplicación o para usar un broker externo, ver **[docs/MQTT-CONEXION.md](docs/MQTT-CONEXION.md)**:
+
+- **Recibir datos**: suscribirse a `application/<APPLICATION_ID>/device/+/event/up` (o `/#`) en `localhost:1883`.
+- **Enviar downlink**: publicar en `application/<APPLICATION_ID>/device/<DEV_EUI>/command/down`.
+- **Broker externo**: configurar `server` (y opcionalmente usuario/contraseña) en `configuration/chirpstack/chirpstack.toml` y reiniciar ChirpStack.
+
+Si tu **proveedor** (p. ej. Hong GPS / Milesight) te da un broker y tópicos para downlinks, ver **[docs/DOWNLINK-PROVEEDOR-HONG-GPS.md](docs/DOWNLINK-PROVEEDOR-HONG-GPS.md)**. El servicio **mqtt-bridge-provider** en el compose reenvía los downlinks de ChirpStack a ese broker (configurable por variables de entorno).
+
+## Despliegue (Dokploy) y puertos
+
+Si desplegás en **Dokploy** y los puertos **80** o **8080** están en uso, podés cambiar los puertos publicados con variables de entorno (ver **[docs/DEPLOY-DOKPLOY.md](docs/DEPLOY-DOKPLOY.md)**):
+
+- `CHIRPSTACK_UI_PORT` (por defecto 8080) → ej. 8081
+- `CHIRPSTACK_REST_PORT` (por defecto 8090) → ej. 8091
+- `MOSQUITTO_PORT` (por defecto 1883)
+
+Copiá `.env.example` a `.env` y ajustá los valores, o configuralos en el panel de Dokploy. **Qué subir y qué no** (certificados, secretos) está documentado en ese mismo doc.
+
 ## Importing device repository
 
 To import the [lorawan-devices](https://github.com/TheThingsNetwork/lorawan-devices)

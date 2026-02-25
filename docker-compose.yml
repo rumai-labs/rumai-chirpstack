@@ -14,7 +14,7 @@ services:
       - REDIS_HOST=redis
       - POSTGRESQL_HOST=postgres
     ports:
-      - "8080:8080"
+      - "${CHIRPSTACK_UI_PORT:-8080}:8080"
 
   chirpstack-gateway-bridge:
     image: chirpstack/chirpstack-gateway-bridge:4
@@ -24,16 +24,16 @@ services:
     volumes:
       - ./configuration/chirpstack-gateway-bridge:/etc/chirpstack-gateway-bridge
     environment:
-      - INTEGRATION__MQTT__EVENT_TOPIC_TEMPLATE=eu868/gateway/{{ .GatewayID }}/event/{{ .EventType }}
-      - INTEGRATION__MQTT__STATE_TOPIC_TEMPLATE=eu868/gateway/{{ .GatewayID }}/state/{{ .StateType }}
-      - INTEGRATION__MQTT__COMMAND_TOPIC_TEMPLATE=eu868/gateway/{{ .GatewayID }}/command/#
+      - INTEGRATION__MQTT__EVENT_TOPIC_TEMPLATE=au915_1/gateway/{{ .GatewayID }}/event/{{ .EventType }}
+      - INTEGRATION__MQTT__STATE_TOPIC_TEMPLATE=au915_1/gateway/{{ .GatewayID }}/state/{{ .StateType }}
+      - INTEGRATION__MQTT__COMMAND_TOPIC_TEMPLATE=au915_1/gateway/{{ .GatewayID }}/command/#
     depends_on:
       - mosquitto
   
   chirpstack-gateway-bridge-basicstation:
     image: chirpstack/chirpstack-gateway-bridge:4
     restart: unless-stopped
-    command: -c /etc/chirpstack-gateway-bridge/chirpstack-gateway-bridge-basicstation-eu868.toml
+    command: -c /etc/chirpstack-gateway-bridge/chirpstack-gateway-bridge-basicstation-au915_full.toml
     ports:
       - "3001:3001"
     volumes:
@@ -46,7 +46,7 @@ services:
     restart: unless-stopped
     command: --server chirpstack:8080 --bind 0.0.0.0:8090 --insecure
     ports:
-      - "8090:8090"
+      - "${CHIRPSTACK_REST_PORT:-8090}:8090"
     depends_on:
       - chirpstack
 
@@ -72,9 +72,36 @@ services:
     image: eclipse-mosquitto:2
     restart: unless-stopped
     ports:
-      - "1883:1883"
-    volumes: 
+      - "${MOSQUITTO_PORT:-1883}:1883"
+    volumes:
       - ./configuration/mosquitto/config/:/mosquitto/config/
+
+  # Bridge MQTT: reenvía downlinks de ChirpStack (Mosquitto) al broker del proveedor.
+  # Los downlinks que se programen en ChirpStack se republican en /Milesight/Downlink/<EUI>.
+  mqtt-bridge-provider:
+    image: python:3.11-alpine
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./scripts/bridge-downlink-chirpstack-to-provider.py:/app/bridge.py
+    command: sh -c "pip install --no-cache-dir paho-mqtt && exec python bridge.py"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+      - CHIRPSTACK_MQTT_HOST=mosquitto
+      - CHIRPSTACK_MQTT_PORT=1883
+      - PROVIDER_MQTT_HOST=lora.honggps.com
+      - PROVIDER_MQTT_PORT=8884
+      - PROVIDER_MQTT_TLS=true
+      - PROVIDER_MQTT_WEBSOCKETS=false
+      - PROVIDER_MQTT_CLIENT_ID=mqttx_b3d78c78
+      - PROVIDER_DOWNLINK_TOPIC=/Milesight/Downlink/{}
+      - PROVIDER_CONNECT_RETRY_SEC=30
+      - PROVIDER_OPTIONAL=true
+      # Probar en orden: 8884, 8883, 1883, 8084, 8083, 8080, 443 (TLS/WSS/ws). Si uno conecta se usa.
+      - PROVIDER_TRY_ALL_PORTS=true
+    depends_on:
+      - mosquitto
 
 volumes:
   postgresqldata:

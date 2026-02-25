@@ -1,7 +1,12 @@
 # hidden files, exluding gitattributes
 .*
 !.gitattributes
+!.env.example
 
 # data folder
 /data
 /lorawan-devices
+
+# Certificados CA (generados por scripts; no subir)
+configuration/chirpstack/ca.pem
+configuration/chirpstack/ca-key.pem
